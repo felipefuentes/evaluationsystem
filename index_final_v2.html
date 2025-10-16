@@ -1,0 +1,1460 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Avaliação de Desempenho</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Biblioteca SheetJS para leitura de arquivos Excel -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <style>
+        /* Estilos personalizados */
+        .avatar-item {
+            cursor: grab;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+        
+        .avatar-item:active {
+            cursor: grabbing;
+        }
+        
+        .avatar-item:hover {
+            transform: scale(1.05);
+        }
+        
+        .lane {
+            min-height: 120px;
+            transition: background-color 0.2s ease;
+        }
+        
+        .lane.drag-over {
+            background-color: rgba(59, 130, 246, 0.1);
+            border-color: #3b82f6;
+            border-width: 3px;
+        }
+        
+        /* Tooltip com scroll */
+        .tooltip {
+            position: fixed;
+            z-index: 1000;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 0;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+            max-width: 400px;
+            max-height: 500px;
+            pointer-events: auto;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .tooltip.show {
+            opacity: 1;
+        }
+        
+        .tooltip-content {
+            padding: 16px;
+            overflow-y: auto;
+            max-height: 500px;
+        }
+        
+        .tooltip-content::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .tooltip-content::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        
+        .tooltip-content::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        
+        .tooltip-content::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        
+        .avatar-photo {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        .avatar-initials {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 20px;
+            color: white;
+            position: relative;
+        }
+        
+        /* Seletor de cor do avatar */
+        .color-picker {
+            position: absolute;
+            top: 50%;
+            left: -40px; /* Ajustado para mover mais para a esquerda */
+            transform: translateY(-50%);
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            display: none;
+            z-index: 100;
+            flex-direction: column;
+            gap: 6px;
+            align-items: center; /* Centraliza os itens verticalmente */
+            justify-content: center; /* Centraliza os itens horizontalmente */
+        }
+        
+        .color-picker.show {
+            display: flex;
+        }
+        
+        .color-option {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s ease;
+        }
+        
+        .color-option:hover {
+            transform: scale(1.1);
+            border-color: #3b82f6;
+        }
+        
+        .color-option.selected {
+            border-color: #1e40af;
+            box-shadow: 0 0 0 2px white, 0 0 0 4px #1e40af;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal.show {
+            display: flex;
+        }
+        
+        @media (max-width: 768px) {
+            .avatar-photo, .avatar-initials {
+                width: 48px;
+                height: 48px;
+                font-size: 16px;
+            }
+            
+            .tooltip {
+                max-width: 280px;
+                font-size: 14px;
+            }
+        }
+        
+        /* Animações */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.3s ease;
+        }
+        
+        /* Scroll suave */
+        html {
+            scroll-behavior: smooth;
+        }
+        
+        /* Melhorias visuais */
+        .performance-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        
+        .badge-exceptional {
+            background-color: #dcfce7;
+            color: #166534;
+        }
+        
+        .badge-good {
+            background-color: #fef9c3;
+            color: #854d0e;
+        }
+        
+        .badge-low {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+        
+        .badge-calibrated {
+            background-color: #dbeafe;
+            color: #1e40af;
+            margin-left: 4px;
+        }
+        
+        /* Estilo para área de upload */
+        .upload-area {
+            border: 2px dashed #cbd5e1;
+            border-radius: 8px;
+            padding: 24px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .upload-area:hover {
+            border-color: #3b82f6;
+            background-color: #f8fafc;
+        }
+        
+        .upload-area.drag-over {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Tooltip -->
+    <div id="tooltip" class="tooltip">
+        <div id="tooltipContent" class="tooltip-content"></div>
+    </div>
+    
+    <!-- Modal de Adição de Funcionário -->
+    <div id="addEmployeeModal" class="modal">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold text-gray-800">Adicionar Funcionário</h2>
+                <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700 text-2xl transition">&times;</button>
+            </div>
+            
+            <form id="employeeForm" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Nome do Profissional *</label>
+                        <input type="text" id="employeeName" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Equipe *</label>
+                        <input type="text" id="employeeTeam" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Cargo *</label>
+                        <input type="text" id="employeePosition" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Nota (1.0 - 3.0) *</label>
+                        <input type="number" id="employeeRating" required min="1.0" max="3.0" step="0.01" value="2.0" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+                    </div>
+                    
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">URL da Foto (opcional)</label>
+                        <input type="url" id="employeePhoto" placeholder="https://exemplo.com/foto.jpg" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+                        <p class="text-xs text-gray-500 mt-1">Deixe em branco para usar iniciais do nome</p>
+                    </div>
+                </div>
+                
+                <div class="border-t pt-4 mt-4">
+                    <h3 class="font-semibold text-gray-700 mb-3">Informações de Avaliação (Método STAR)</h3>
+                    
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Situação</label>
+                            <textarea id="employeeSituation" rows="2" placeholder="Descreva o contexto ou situação..." class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition"></textarea>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Tarefa</label>
+                            <textarea id="employeeTask" rows="2" placeholder="Qual era a tarefa ou objetivo..." class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition"></textarea>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Ação</label>
+                            <textarea id="employeeAction" rows="2" placeholder="Quais ações foram tomadas..." class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition"></textarea>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Resultado</label>
+                            <textarea id="employeeResult" rows="2" placeholder="Quais foram os resultados obtidos..." class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition"></textarea>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="border-t pt-4 mt-4">
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Justificativa</label>
+                            <textarea id="employeeJustification" rows="2" placeholder="Justifique a avaliação..." class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition"></textarea>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Feedback Recomendado</label>
+                            <textarea id="employeeFeedback" rows="2" placeholder="Sugestões de feedback para o funcionário..." class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition"></textarea>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex justify-end gap-3 pt-4 border-t">
+                    <button type="button" onclick="closeModal()" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition font-medium">
+                        Adicionar Funcionário
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Modal de Upload de Excel -->
+    <div id="uploadExcelModal" class="modal">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-3xl mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold text-gray-800">📊 Importar Funcionários via Excel</h2>
+                <button onclick="closeUploadModal()" class="text-gray-500 hover:text-gray-700 text-2xl transition">&times;</button>
+            </div>
+            
+            <div class="mb-6">
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                    <h3 class="font-semibold text-blue-900 mb-2">📋 Formato do Arquivo Excel</h3>
+                    <p class="text-sm text-blue-800 mb-2">O arquivo deve conter as seguintes colunas <strong>nesta ordem exata</strong>:</p>
+                    <ol class="text-sm text-blue-800 space-y-1 ml-4">
+                        <li>1. <strong>Nome do Profissional</strong> (obrigatório)</li>
+                        <li>2. <strong>Equipe</strong> (obrigatório)</li>
+                        <li>3. <strong>Cargo</strong> (obrigatório)</li>
+                        <li>4. <strong>Nota</strong> (obrigatório - valor entre 1.0 e 3.0)</li>
+                        <li>5. <strong>URL da Foto</strong> (opcional)</li>
+                        <li>6. <strong>Situação</strong> (opcional)</li>
+                        <li>7. <strong>Tarefa</strong> (opcional)</li>
+                        <li>8. <strong>Ação</strong> (opcional)</li>
+                        <li>9. <strong>Resultado</strong> (opcional)</li>
+                        <li>10. <strong>Justificativa</strong> (opcional)</li>
+                        <li>11. <strong>Feedback Recomendado</strong> (opcional)</li>
+                    </ol>
+                    <p class="text-xs text-blue-700 mt-3">💡 <strong>Dica:</strong> A primeira linha pode conter cabeçalhos (será ignorada automaticamente)</p>
+                </div>
+                
+                <div id="uploadArea" class="upload-area">
+                    <input type="file" id="excelFileInput" accept=".xlsx,.xls" class="hidden">
+                    <svg class="mx-auto h-12 w-12 text-gray-400 mb-3" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                        <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    <p class="text-gray-600 font-medium mb-1">Clique para selecionar ou arraste o arquivo aqui</p>
+                    <p class="text-sm text-gray-500">Formatos aceitos: .xlsx, .xls</p>
+                </div>
+                
+                <div id="fileInfo" class="hidden mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                    <p class="text-sm text-green-800"><strong>Arquivo selecionado:</strong> <span id="fileName"></span></p>
+                    <p class="text-sm text-green-800"><strong>Total de funcionários:</strong> <span id="employeeCount"></span></p>
+                </div>
+                
+                <div id="uploadError" class="hidden mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <p class="text-sm text-red-800"><strong>Erro:</strong> <span id="errorMessage"></span></p>
+                </div>
+            </div>
+            
+            <div class="flex justify-end gap-3 pt-4 border-t">
+                <button type="button" onclick="closeUploadModal()" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition">
+                    Cancelar
+                </button>
+                <button type="button" id="processExcelBtn" onclick="processExcelFile()" disabled class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition font-medium disabled:bg-gray-300 disabled:cursor-not-allowed">
+                    Importar Funcionários
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Container Principal -->
+    <div class="container mx-auto px-4 py-6 max-w-7xl">
+        <!-- Cabeçalho -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6 fade-in">
+            <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-800">Sistema de Avaliação de Desempenho</h1>
+                    <p class="text-gray-600 mt-1">Gerencie e avalie o desempenho da sua equipe</p>
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="exportData()" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition font-medium flex items-center gap-2">
+                        <span>📊</span> Exportar
+                    </button>
+                    <button onclick="openUploadModal()" class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition font-medium flex items-center gap-2">
+                        <span>📤</span> Importar Excel
+                    </button>
+                    <button onclick="openModal()" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition font-medium">
+                        + Adicionar Funcionário
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Estatísticas -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+                <div class="text-center">
+                    <div class="text-4xl font-bold text-gray-800" id="stat-total">0</div>
+                    <div class="text-sm text-gray-600">Total</div>
+                    <div class="text-xs text-gray-500 mt-1">
+                        <span id="percent-total" class="font-medium">100%</span>
+                    </div>
+                </div>
+                <div class="text-center">
+                    <div class="text-4xl font-bold text-green-600" id="stat-exceptional">0</div>
+                    <div class="text-sm text-gray-600">Excepcional</div>
+                    <div class="text-xs text-gray-500 mt-1">
+                        <span id="percent-excepcional" class="font-medium">0%</span>
+                    </div>
+                </div>
+                <div class="text-center">
+                    <div class="text-4xl font-bold text-yellow-600" id="stat-good">0</div>
+                    <div class="text-sm text-gray-600">Boa</div>
+                    <div class="text-xs text-gray-500 mt-1">
+                        <span id="percent-boa" class="font-medium">0%</span>
+                    </div>
+                </div>
+                <div class="text-center">
+                    <div class="text-4xl font-bold text-red-600" id="stat-low">0</div>
+                    <div class="text-sm text-gray-600">Baixa</div>
+                    <div class="text-xs text-gray-500 mt-1">
+                        <span id="percent-baixa" class="font-medium">0%</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Seção de Filtros -->
+            <div class="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <h3 class="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                    <span>🔍</span> Filtros
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Nome do Profissional</label>
+                        <input type="text" id="filterName" placeholder="Digite o nome..." class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Cargo</label>
+                        <input type="text" id="filterPosition" placeholder="Digite o cargo..." class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Equipe</label>
+                        <input type="text" id="filterTeam" placeholder="Digite a equipe..." class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+                    </div>
+                </div>
+                <div class="mt-3 flex justify-end">
+                    <button onclick="clearFilters()" class="px-4 py-1.5 text-sm bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition font-medium">
+                        Limpar Filtros
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Área de Funcionários Não Alocados -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6 fade-in">
+            <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <span>📋</span> Funcionários Não Alocados
+            </h2>
+            <div id="unallocatedEmployees" class="flex flex-wrap gap-4 min-h-[100px] border-2 border-dashed border-gray-300 rounded-lg p-4">
+                <p class="text-gray-400 text-center w-full">Arraste os funcionários aqui</p>
+            </div>
+        </div>
+        
+        <!-- Raias de Performance -->
+        <div class="space-y-4">
+            <!-- Excepcional -->
+            <div class="bg-white rounded-lg shadow-md p-6 fade-in">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-green-600 text-white px-4 py-2 rounded-md font-bold">EXCEPCIONAL</div>
+                        <span class="text-sm text-gray-600">2.76 - 3.0 • Desempenho acima das expectativas</span>
+                    </div>
+                </div>
+                <div id="lane-exceptional" class="lane flex flex-wrap gap-4 border-2 border-green-200 bg-green-50 rounded-lg p-4">
+                    <p class="text-gray-400 text-center w-full">Arraste os funcionários aqui</p>
+                </div>
+            </div>
+            
+            <!-- Boa -->
+            <div class="bg-white rounded-lg shadow-md p-6 fade-in">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-yellow-600 text-white px-4 py-2 rounded-md font-bold">BOA</div>
+                        <span class="text-sm text-gray-600">1.76 - 2.75 • Desempenho dentro das expectativas</span>
+                    </div>
+                </div>
+                <div id="lane-good" class="lane flex flex-wrap gap-4 border-2 border-yellow-200 bg-yellow-50 rounded-lg p-4">
+                    <p class="text-gray-400 text-center w-full">Arraste os funcionários aqui</p>
+                </div>
+            </div>
+            
+            <!-- Baixa -->
+            <div class="bg-white rounded-lg shadow-md p-6 fade-in">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-red-600 text-white px-4 py-2 rounded-md font-bold">BAIXA</div>
+                        <span class="text-sm text-gray-600">1.0 - 1.75 • Desempenho abaixo das expectativas</span>
+                    </div>
+                </div>
+                <div id="lane-low" class="lane flex flex-wrap gap-4 border-2 border-red-200 bg-red-50 rounded-lg p-4">
+                    <p class="text-gray-400 text-center w-full">Arraste os funcionários aqui</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Rodapé -->
+        <div class="text-center mt-8 text-gray-500 text-sm">
+            Sistema de Avaliação de Desempenho • Desenvolvido para apoiar discussões de performance
+        </div>
+    </div>
+    
+    <script>
+        // Armazenamento de dados
+        let employees = [];
+        let excelData = null;
+        let currentColorPicker = null;
+        let hideTooltipTimeout = null;
+        let currentTooltipEmployee = null;
+        
+        // Cores disponíveis para os avatares
+        const AVATAR_COLORS = {
+            default: '#4B5563', // Cinza escuro
+            green: '#22C55E',   // Verde - Prioridade para promoções e méritos
+            yellow: '#EAB308',  // Amarelo - Prioridade para méritos apenas
+            red: '#EF4444'      // Vermelho - Podem ter notas diminuídas
+        };
+        
+        // Gerar cor baseada no nome (não usado mais, mas mantido para compatibilidade)
+        function stringToColor(str) {
+            return AVATAR_COLORS.default;
+        }
+        
+        // Obter iniciais do nome
+        function getInitials(name) {
+            return name
+                .split(' ')
+                .map(word => word[0])
+                .join('')
+                .toUpperCase()
+                .substring(0, 2);
+        }
+        
+        // Obter badge de performance
+        function getPerformanceBadge(rating, calibratedRating = null) {
+            const currentRating = calibratedRating || rating;
+            let badgeClass = '';
+            let label = '';
+            
+            if (currentRating >= 2.76) {
+                badgeClass = 'badge-exceptional';
+                label = 'Excepcional';
+            } else if (currentRating >= 1.76) {
+                badgeClass = 'badge-good';
+                label = 'Boa';
+            } else {
+                badgeClass = 'badge-low';
+                label = 'Baixa';
+            }
+            
+            let badges = `<span class="performance-badge ${badgeClass}">${label}</span>`;
+            
+            // Se houver nota calibrada, mostrar badge adicional
+            if (calibratedRating !== null && calibratedRating !== rating) {
+                badges += `<span class="performance-badge badge-calibrated">Calibrada</span>`;
+            }
+            
+            return badges;
+        }
+        
+        // Criar seletor de cor
+        function createColorPicker(employeeId) {
+            const picker = document.createElement('div');
+            picker.className = 'color-picker';
+            picker.innerHTML = `
+                <div class="color-option" style="background-color: ${AVATAR_COLORS.default}" data-color="default" title="Padrão"></div>
+                <div class="color-option" style="background-color: ${AVATAR_COLORS.green}" data-color="green" title="Promoções e Méritos"></div>
+                <div class="color-option" style="background-color: ${AVATAR_COLORS.yellow}" data-color="yellow" title="Méritos Apenas"></div>
+                <div class="color-option" style="background-color: ${AVATAR_COLORS.red}" data-color="red" title="Atenção"></div>
+            `;
+            
+            // Adicionar eventos aos botões de cor
+            picker.querySelectorAll('.color-option').forEach(option => {
+                option.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const color = option.dataset.color;
+                    changeAvatarColor(employeeId, color);
+                    hideColorPicker();
+                });
+            });
+            
+            return picker;
+        }
+        
+        // Mostrar seletor de cor
+        function showColorPicker(avatarElement, employeeId) {
+            hideColorPicker();
+            hideTooltip(); // Garante que o tooltip seja escondido ao abrir o seletor de cor
+            
+            const picker = createColorPicker(employeeId);
+            avatarElement.appendChild(picker);
+            
+            // Destacar cor atual
+            const employee = employees.find(e => e.id === employeeId);
+            if (employee && employee.avatarColor) {
+                const currentOption = picker.querySelector(`[data-color="${employee.avatarColor}"]`);
+                if (currentOption) {
+                    currentOption.classList.add('selected');
+                }
+            } else {
+                picker.querySelector('[data-color="default"]').classList.add('selected');
+            }
+            
+            setTimeout(() => picker.classList.add('show'), 10);
+            currentColorPicker = picker;
+        }
+        
+        // Esconder seletor de cor
+        function hideColorPicker() {
+            if (currentColorPicker) {
+                currentColorPicker.remove();
+                currentColorPicker = null;
+            }
+        }
+        
+        // Mudar cor do avatar
+        function changeAvatarColor(employeeId, color) {
+            const employee = employees.find(e => e.id === employeeId);
+            if (employee) {
+                employee.avatarColor = color;
+                
+                // Atualizar visualmente
+                const avatarElement = document.querySelector(`[data-employee-id="${employeeId}"]`);
+                if (avatarElement) {
+                    const initialsDiv = avatarElement.querySelector('.avatar-initials');
+                    if (initialsDiv) {
+                        initialsDiv.style.backgroundColor = AVATAR_COLORS[color];
+                    }
+                }
+            }
+        }
+        
+        // Criar elemento de avatar
+        function createAvatarElement(employee) {
+            const div = document.createElement('div');
+            div.className = 'avatar-item flex flex-col items-center gap-2 fade-in';
+            div.draggable = true;
+            div.dataset.employeeId = employee.id;
+            
+            const avatarColor = employee.avatarColor ? AVATAR_COLORS[employee.avatarColor] : AVATAR_COLORS.default;
+            
+            const avatarHtml = employee.photo 
+                ? `<img src="${employee.photo}" alt="${employee.name}" class="avatar-photo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                   <div class="avatar-initials" style="background-color: ${avatarColor}; display: none;">${getInitials(employee.name)}</div>`
+                : `<div class="avatar-initials" style="background-color: ${avatarColor}">${getInitials(employee.name)}</div>`;
+            
+            div.innerHTML = `
+                ${avatarHtml}
+                <span class="text-sm font-medium text-gray-700 text-center max-w-[80px] truncate">${employee.name.split(' ')[0]}</span>
+            `;
+            
+            // Eventos de drag
+            div.addEventListener('dragstart', handleDragStart);
+            div.addEventListener('dragend', handleDragEnd);
+            
+            // Eventos de tooltip (OTIMIZADO)
+            div.addEventListener('mouseenter', (e) => { 
+                // Sempre mostrar o tooltip, independente do estado de drag
+                showTooltip(e, employee); 
+            });
+            div.addEventListener('mouseleave', (e) => {
+                // Só esconder se o mouse realmente saiu do avatar
+                hideTooltip();
+            });
+            
+            // Evento de clique para seletor de cor
+            const avatarCircle = div.querySelector('.avatar-initials, .avatar-photo');
+            if (avatarCircle) {
+                avatarCircle.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    showColorPicker(div, employee.id);
+                });
+            }
+            
+            return div;
+        }
+        
+        // Drag and Drop
+        let draggedElement = null;
+        
+        function handleDragStart(e) {
+            draggedElement = e.target.closest('.avatar-item');
+            e.dataTransfer.effectAllowed = 'move';
+            draggedElement.style.opacity = '0.5';
+            hideColorPicker();
+            // Garante que o tooltip seja escondido ao iniciar o drag
+            document.getElementById('tooltip').classList.remove('show');
+        }
+        
+        function handleDragEnd(e) {
+            draggedElement.style.opacity = '1';
+            draggedElement = null; // Limpa a variável de drag
+        }
+        
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+        }
+        
+        function handleDragEnter(e) {
+            if (e.target.classList.contains('lane') || e.target.id === 'unallocatedEmployees') {
+                e.target.classList.add('drag-over');
+            }
+        }
+        
+        function handleDragLeave(e) {
+            if (e.target.classList.contains('lane') || e.target.id === 'unallocatedEmployees') {
+                e.target.classList.remove('drag-over');
+            }
+        }
+        
+        let pendingDropData = null;
+        
+        function handleDrop(e) {
+            e.preventDefault();
+            const dropZone = e.target.classList.contains('lane') || e.target.id === 'unallocatedEmployees' 
+                ? e.target 
+                : e.target.closest('.lane, #unallocatedEmployees');
+            
+            if (dropZone && draggedElement) {
+                dropZone.classList.remove('drag-over');
+                
+                const employeeId = parseInt(draggedElement.dataset.employeeId);
+                const employee = employees.find(e => e.id === employeeId);
+                
+                // Se movendo para uma raia de performance (não "Não Alocados"), solicitar nota calibrada
+                if (employee && dropZone.id !== 'unallocatedEmployees' && dropZone.classList.contains('lane')) {
+                    // Armazenar dados pendentes
+                    pendingDropData = {
+                        dropZone: dropZone,
+                        draggedElement: draggedElement,
+                        employee: employee
+                    };
+                    
+                    // Abrir modal de calibração
+                    document.getElementById('calibrationEmployeeName').textContent = employee.name;
+                    document.getElementById('calibrationOriginalRating').textContent = employee.rating.toFixed(2);
+                    
+                    // Sugerir nota baseada na raia de destino
+                    let suggestedRating = employee.rating;
+                    if (dropZone.id === 'lane-exceptional' && suggestedRating < 2.76) {
+                        suggestedRating = 2.8;
+                    } else if (dropZone.id === 'lane-good' && (suggestedRating < 1.76 || suggestedRating >= 2.76)) {
+                        suggestedRating = 2.25;
+                    } else if (dropZone.id === 'lane-low' && suggestedRating >= 1.76) {
+                        suggestedRating = 1.5;
+                    }
+                    
+                    document.getElementById('calibrationRatingInput').value = suggestedRating.toFixed(1);
+                    const modal = document.getElementById('calibrationModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            modal.style.display = 'flex';
+                    document.getElementById('calibrationModal').classList.add('flex');
+                    document.getElementById('calibrationRatingInput').focus();
+                    document.getElementById('calibrationRatingInput').select();
+                } else {
+                    // Se movendo para "Não Alocados", processar diretamente
+                    completeDrop(dropZone, draggedElement, employee);
+                }
+            }
+        }
+        
+        function confirmCalibration() {
+            const newRating = parseFloat(document.getElementById('calibrationRatingInput').value);
+            const observation = document.getElementById('calibrationObservation').value.trim();
+            
+            if (isNaN(newRating) || newRating < 1.0 || newRating > 3.0) {
+                alert('Por favor, insira uma nota válida entre 1.0 e 3.0');
+                return;
+            }
+            
+            if (pendingDropData) {
+                const { dropZone, draggedElement, employee } = pendingDropData;
+                
+                // Atualizar nota calibrada e observação
+                employee.calibratedRating = newRating;
+                employee.calibrationObservation = observation || '';
+                
+                // Completar o drop
+                completeDrop(dropZone, draggedElement, employee);
+                
+                // Limpar dados pendentes
+                pendingDropData = null;
+            }
+            
+            // Limpar campos do modal
+            document.getElementById('calibrationRatingInput').value = '';
+            document.getElementById('calibrationObservation').value = '';
+            
+            // Fechar modal de forma robusta
+            const modal = document.getElementById('calibrationModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            modal.style.display = 'none';
+        }
+        
+        function cancelCalibration() {
+            // Reverter o drag (não mover o elemento)
+            if (pendingDropData) {
+                pendingDropData.draggedElement.style.opacity = '1';
+                pendingDropData = null;
+            }
+            
+            // Limpar campos do modal
+            document.getElementById('calibrationRatingInput').value = '';
+            document.getElementById('calibrationObservation').value = '';
+            
+            // Fechar modal de forma robusta
+            const modal = document.getElementById('calibrationModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            modal.style.display = 'none';
+        }
+        
+        function completeDrop(dropZone, draggedElement, employee) {
+            // Remove placeholder se existir
+            const placeholder = dropZone.querySelector('p');
+            if (placeholder) {
+                placeholder.remove();
+            }
+            
+            // Adiciona o elemento na nova raia
+            dropZone.appendChild(draggedElement);
+            
+            // Se voltou para "Não Alocados", remover calibração
+            if (employee && dropZone.id === 'unallocatedEmployees') {
+                delete employee.calibratedRating;
+            }
+            
+            // Atualizar estatísticas
+            updateStatistics();
+        }
+        
+        // Tooltip com scroll (OTIMIZADO)
+        function showTooltip(e, employee) {
+            // Cancelar qualquer timeout pendente de hide IMEDIATAMENTE
+            if (hideTooltipTimeout) {
+                clearTimeout(hideTooltipTimeout);
+                hideTooltipTimeout = null;
+            }
+            
+            // Forçar a exibição mesmo se for o mesmo funcionário
+            // Isso garante que o tooltip seja sempre visível
+            currentTooltipEmployee = employee;
+            
+            const tooltip = document.getElementById('tooltip');
+            const tooltipContent = document.getElementById('tooltipContent');
+            
+            const hasDetails = employee.situation || employee.task || employee.action || 
+                             employee.result || employee.justification || employee.feedback;
+            
+            const displayRating = employee.calibratedRating || employee.rating;
+            const hasCalibration = employee.calibratedRating && employee.calibratedRating !== employee.rating;
+            
+            tooltipContent.innerHTML = `
+                <div class="space-y-2">
+                    <div class="border-b pb-2">
+                        <h3 class="font-bold text-lg text-gray-800">${employee.name}</h3>
+                        <p class="text-sm text-gray-600">${employee.position} • ${employee.team}</p>
+                        <div class="flex items-center gap-2 mt-2">
+                            <div class="text-sm">
+                                <span class="font-medium text-gray-700">Nota Original:</span> 
+                                <span class="text-blue-600 font-semibold">${employee.rating.toFixed(2)}</span>
+                            </div>
+                            ${hasCalibration ? `
+                                <div class="text-sm">
+                                    <span class="font-medium text-gray-700">→ Calibrada:</span> 
+                                    <span class="text-purple-600 font-semibold">${employee.calibratedRating.toFixed(2)}</span>
+                                </div>
+                            ` : ''}
+                        </div>
+                        <div class="mt-1">
+                            ${getPerformanceBadge(employee.rating, employee.calibratedRating)}
+                        </div>
+                    </div>
+                    ${hasDetails ? `
+                        ${employee.situation ? `<div><span class="font-semibold text-gray-700">Situação:</span> <span class="text-gray-600 text-sm">${employee.situation}</span></div>` : ''}
+                        ${employee.task ? `<div><span class="font-semibold text-gray-700">Tarefa:</span> <span class="text-gray-600 text-sm">${employee.task}</span></div>` : ''}
+                        ${employee.action ? `<div><span class="font-semibold text-gray-700">Ação:</span> <span class="text-gray-600 text-sm">${employee.action}</span></div>` : ''}
+                        ${employee.result ? `<div><span class="font-semibold text-gray-700">Resultado:</span> <span class="text-gray-600 text-sm">${employee.result}</span></div>` : ''}
+                        ${employee.justification ? `<div><span class="font-semibold text-gray-700">Justificativa:</span> <span class="text-gray-600 text-sm">${employee.justification}</span></div>` : ''}
+                        ${employee.feedback ? `<div><span class="font-semibold text-gray-700">Feedback Recomendado:</span> <span class="text-gray-600 text-sm">${employee.feedback}</span></div>` : ''}
+                    ` : '<p class="text-gray-500 text-sm italic">Nenhuma informação adicional cadastrada</p>'}
+                </div>
+            `;
+            
+            // Posicionar antes de mostrar para evitar flicker
+            positionTooltip(e);
+            tooltip.classList.add('show');
+        }
+        
+        function hideTooltip() {
+            // Cancelar timeout anterior se existir
+            if (hideTooltipTimeout) {
+                clearTimeout(hideTooltipTimeout);
+            }
+            
+            // Delay mínimo para permitir transição suave entre avatares
+            hideTooltipTimeout = setTimeout(() => {
+                const tooltip = document.getElementById('tooltip');
+                // Verifica se o mouse ainda está sobre o tooltip
+                // Removida a verificação de draggedElement para evitar bloqueio
+                if (!tooltip.matches(':hover')) {
+                    tooltip.classList.remove('show');
+                    currentTooltipEmployee = null;
+                }
+                hideTooltipTimeout = null;
+            }, 30);
+        }
+        
+        function positionTooltip(e) {
+            const tooltip = document.getElementById('tooltip');
+            const offset = 15;
+            let x = e.clientX + offset;
+            let y = e.clientY + offset;
+            
+            // Posicionar imediatamente usando requestAnimationFrame para melhor performance
+            requestAnimationFrame(() => {
+                const tooltipRect = tooltip.getBoundingClientRect();
+                
+                // Verifica se o tooltip sai da tela horizontalmente
+                if (x + tooltipRect.width > window.innerWidth) {
+                    x = e.clientX - tooltipRect.width - offset;
+                }
+                
+                // Verifica se o tooltip sai da tela verticalmente
+                if (y + tooltipRect.height > window.innerHeight) {
+                    y = window.innerHeight - tooltipRect.height - offset;
+                }
+                
+                // Garante que não fique com valores negativos
+                x = Math.max(offset, x);
+                y = Math.max(offset, y);
+                
+                tooltip.style.left = x + 'px';
+                tooltip.style.top = y + 'px';
+            });
+        }
+        
+        // Modal de Funcionário
+        function openModal() {
+            document.getElementById('addEmployeeModal').classList.add('show');
+        }
+        
+        function closeModal() {
+            document.getElementById('addEmployeeModal').classList.remove('show');
+            document.getElementById('employeeForm').reset();
+        }
+        
+        // Modal de Upload
+        function openUploadModal() {
+            document.getElementById('uploadExcelModal').classList.add('show');
+        }
+        
+        function closeUploadModal() {
+            document.getElementById('uploadExcelModal').classList.remove('show');
+            document.getElementById('fileInfo').classList.add('hidden');
+            document.getElementById('uploadError').classList.add('hidden');
+            document.getElementById('excelFileInput').value = '';
+            document.getElementById('processExcelBtn').disabled = true;
+            excelData = null;
+        }
+        
+        // Upload de Excel
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('excelFileInput');
+        
+        uploadArea.addEventListener('click', () => fileInput.click());
+        
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('drag-over');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('drag-over');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('drag-over');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileSelect(files[0]);
+            }
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileSelect(e.target.files[0]);
+            }
+        });
+        
+        function handleFileSelect(file) {
+            if (!file.name.match(/\.(xlsx|xls)$/)) {
+                showError('Por favor, selecione um arquivo Excel válido (.xlsx ou .xls)');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+                    
+                    // Remove a primeira linha se parecer ser cabeçalho
+                    if (jsonData.length > 0 && typeof jsonData[0][0] === 'string' && isNaN(parseFloat(jsonData[0][3]))) {
+                        jsonData.shift();
+                    }
+                    
+                    if (jsonData.length === 0) {
+                        showError('O arquivo Excel está vazio ou não contém dados válidos.');
+                        return;
+                    }
+                    
+                    excelData = jsonData;
+                    document.getElementById('fileName').textContent = file.name;
+                    document.getElementById('employeeCount').textContent = jsonData.length;
+                    document.getElementById('fileInfo').classList.remove('hidden');
+                    document.getElementById('uploadError').classList.add('hidden');
+                    document.getElementById('processExcelBtn').disabled = false;
+                } catch (error) {
+                    showError('Erro ao processar o arquivo Excel: ' + error.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+        
+        function showError(message) {
+            document.getElementById('errorMessage').textContent = message;
+            document.getElementById('uploadError').classList.remove('hidden');
+            document.getElementById('fileInfo').classList.add('hidden');
+            document.getElementById('processExcelBtn').disabled = true;
+        }
+        
+        function processExcelFile() {
+            if (!excelData) return;
+            
+            let successCount = 0;
+            let errorCount = 0;
+            
+            excelData.forEach((row, index) => {
+                try {
+                    // Validar campos obrigatórios
+                    if (!row[0] || !row[1] || !row[2] || !row[3]) {
+                        console.warn(`Linha ${index + 1}: Campos obrigatórios faltando`);
+                        errorCount++;
+                        return;
+                    }
+                    
+                    const rating = parseFloat(row[3]);
+                    if (isNaN(rating) || rating < 1.0 || rating > 3.0) {
+                        console.warn(`Linha ${index + 1}: Nota inválida (${row[3]})`);
+                        errorCount++;
+                        return;
+                    }
+                    
+                    const employee = {
+                        id: Date.now() + index,
+                        name: String(row[0]).trim(),
+                        team: String(row[1]).trim(),
+                        position: String(row[2]).trim(),
+                        rating: rating,
+                        photo: row[4] ? String(row[4]).trim() : '',
+                        situation: row[5] ? String(row[5]).trim() : '',
+                        task: row[6] ? String(row[6]).trim() : '',
+                        action: row[7] ? String(row[7]).trim() : '',
+                        result: row[8] ? String(row[8]).trim() : '',
+                        justification: row[9] ? String(row[9]).trim() : '',
+                        feedback: row[10] ? String(row[10]).trim() : '',
+                        avatarColor: 'default' // Cor padrão
+                    };
+                    
+                    // Importar nota calibrada se existir (coluna 11, índice 11)
+                    if (row[11] && String(row[11]).trim() !== '') {
+                        const calibratedRating = parseFloat(row[11]);
+                        if (!isNaN(calibratedRating) && calibratedRating >= 1.0 && calibratedRating <= 3.0) {
+                            employee.calibratedRating = calibratedRating;
+                        }
+                    }
+                    
+                    employees.push(employee);
+                    
+                    // Alocar automaticamente na raia correta baseado na nota calibrada (se existir) ou nota original
+                    allocateEmployeeToLane(employee);
+                    
+                    successCount++;
+                } catch (error) {
+                    console.error(`Erro na linha ${index + 1}:`, error);
+                    errorCount++;
+                }
+            });
+            
+            updateStatistics();
+            
+            // Fechar modal e mostrar resultado
+            closeUploadModal();
+            alert(`Importação concluída!
+
+Sucesso: ${successCount} funcionário(s)
+Erros: ${errorCount}`);
+        }
+        
+        function allocateEmployeeToLane(employee) {
+            let laneId;
+            
+            if (employee.rating >= 2.76) {
+                laneId = 'lane-exceptional';
+            } else if (employee.rating >= 1.76) {
+                laneId = 'lane-good';
+            } else {
+                laneId = 'lane-low';
+            }
+            
+            const lane = document.getElementById(laneId);
+            const placeholder = lane.querySelector('p');
+            if (placeholder) {
+                placeholder.remove();
+            }
+            
+            const avatarElement = createAvatarElement(employee);
+            lane.appendChild(avatarElement);
+        }
+        
+        // Atualizar estatísticas
+        function updateStatistics() {
+            // Contar apenas os avatares visíveis (não filtrados)
+            const visibleAvatars = Array.from(document.querySelectorAll('.avatar-item')).filter(avatar => {
+                return avatar.style.display !== 'none';
+            });
+            
+            const total = visibleAvatars.length;
+            let exceptional = 0;
+            let good = 0;
+            let low = 0;
+            
+            visibleAvatars.forEach(avatarElement => {
+                const employeeId = parseInt(avatarElement.dataset.employeeId);
+                const emp = employees.find(e => e.id === employeeId);
+                
+                if (emp) {
+                    const rating = emp.calibratedRating || emp.rating;
+                    if (rating >= 2.76) exceptional++;
+                    else if (rating >= 1.76) good++;
+                    else low++;
+                }
+            });
+            
+            document.getElementById('stat-total').textContent = total;
+            document.getElementById('stat-exceptional').textContent = exceptional;
+            document.getElementById('stat-good').textContent = good;
+            document.getElementById('stat-low').textContent = low;
+            
+            // Calcular e atualizar percentuais
+            const exceptionalPercent = total > 0 ? ((exceptional / total) * 100).toFixed(1) : 0;
+            const goodPercent = total > 0 ? ((good / total) * 100).toFixed(1) : 0;
+            const lowPercent = total > 0 ? ((low / total) * 100).toFixed(1) : 0;
+            
+            document.getElementById('percent-total').textContent = '100%';
+            document.getElementById('percent-excepcional').textContent = exceptionalPercent + '%';
+            document.getElementById('percent-boa').textContent = goodPercent + '%';
+            document.getElementById('percent-baixa').textContent = lowPercent + '%';
+        }
+        
+        // Exportar dados (CORRIGIDO)
+        function exportData() {
+            if (employees.length === 0) {
+                alert('Nenhum funcionário cadastrado para exportar.');
+                return;
+            }
+            
+            // Criar dados no formato compatível com importação
+            const rows = [
+                // Cabeçalho
+                [
+                    'Nome do Profissional',
+                    'Equipe',
+                    'Cargo',
+                    'Nota',
+                    'URL da Foto',
+                    'Situação',
+                    'Tarefa',
+                    'Ação',
+                    'Resultado',
+                    'Justificativa',
+                    'Feedback Recomendado',
+                    'Nota Calibrada',
+                    'Observação da Calibração',
+                    'Cor do Avatar',
+                    'Classificação'
+                ]
+            ];
+            
+            // Adicionar dados dos funcionários
+            employees.forEach(emp => {
+                const displayRating = emp.calibratedRating || emp.rating;
+                const classification = displayRating >= 2.76 ? 'Excepcional' : displayRating >= 1.76 ? 'Boa' : 'Baixa';
+                
+                // Mapear cor do avatar para descritivo
+                const colorDescriptions = {
+                    'default': 'Padrão (Cinza)',
+                    'green': 'Verde (Promoção/Méritos)',
+                    'yellow': 'Amarelo (Méritos)',
+                    'red': 'Vermelho (Atenção)'
+                };
+                const colorDescription = colorDescriptions[emp.avatarColor] || colorDescriptions['default'];
+                
+                rows.push([
+                    emp.name,
+                    emp.team,
+                    emp.position,
+                    emp.rating,
+                    emp.photo || '',
+                    emp.situation || '',
+                    emp.task || '',
+                    emp.action || '',
+                    emp.result || '',
+                    emp.justification || '',
+                    emp.feedback || '',
+                    emp.calibratedRating || '',
+                    emp.calibrationObservation || '',
+                    colorDescription,
+                    classification
+                ]);
+            });
+            
+            // Criar workbook e worksheet
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(rows);
+            
+            // Ajustar largura das colunas
+            const colWidths = [
+                { wch: 25 }, // Nome
+                { wch: 15 }, // Equipe
+                { wch: 20 }, // Cargo
+                { wch: 8 },  // Nota
+                { wch: 15 }, // URL Foto
+                { wch: 40 }, // Situação
+                { wch: 40 }, // Tarefa
+                { wch: 40 }, // Ação
+                { wch: 40 }, // Resultado
+                { wch: 40 }, // Justificativa
+                { wch: 40 }, // Feedback
+                { wch: 12 }, // Nota Calibrada
+                { wch: 40 }, // Observação da Calibração
+                { wch: 25 }, // Cor do Avatar
+                { wch: 15 }  // Classificação
+            ];
+            ws['!cols'] = colWidths;
+            
+            XLSX.utils.book_append_sheet(wb, ws, 'Funcionários');
+            
+            // Exportar arquivo
+            const fileName = `avaliacao-desempenho-${new Date().toISOString().split('T')[0]}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+        }
+        
+        // Form submit
+        document.getElementById('employeeForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const employee = {
+                id: Date.now(),
+                name: document.getElementById('employeeName').value,
+                team: document.getElementById('employeeTeam').value,
+                position: document.getElementById('employeePosition').value,
+                rating: parseFloat(document.getElementById('employeeRating').value),
+                photo: document.getElementById('employeePhoto').value,
+                situation: document.getElementById('employeeSituation').value,
+                task: document.getElementById('employeeTask').value,
+                action: document.getElementById('employeeAction').value,
+                result: document.getElementById('employeeResult').value,
+                justification: document.getElementById('employeeJustification').value,
+                feedback: document.getElementById('employeeFeedback').value,
+                avatarColor: 'default' // Cor padrão
+            };
+            
+            employees.push(employee);
+            
+            // Adiciona na área de não alocados
+            const unallocatedArea = document.getElementById('unallocatedEmployees');
+            const placeholder = unallocatedArea.querySelector('p');
+            if (placeholder) {
+                placeholder.remove();
+            }
+            
+            const avatarElement = createAvatarElement(employee);
+            unallocatedArea.appendChild(avatarElement);
+            
+            updateStatistics();
+            closeModal();
+        });
+        
+        // Inicializar eventos de drag and drop nas raias
+        document.querySelectorAll('.lane, #unallocatedEmployees').forEach(lane => {
+            lane.addEventListener('dragover', handleDragOver);
+            lane.addEventListener('dragenter', handleDragEnter);
+            lane.addEventListener('dragleave', handleDragLeave);
+            lane.addEventListener('drop', handleDrop);
+        });
+        
+        // Fechar modal ao clicar fora
+        document.getElementById('addEmployeeModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+        
+        document.getElementById('uploadExcelModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeUploadModal();
+            }
+        });
+        
+        // Fechar seletor de cor ao clicar fora
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.avatar-item') && !e.target.closest('.color-picker')) {
+                hideColorPicker();
+            }
+        });
+        
+        // Atalho de teclado para abrir modal (Ctrl+N ou Cmd+N)
+        document.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+                e.preventDefault();
+                openModal();
+            }
+            
+            // ESC para fechar modal e seletor de cor
+            if (e.key === 'Escape') {
+                closeModal();
+                closeUploadModal();
+                hideColorPicker();
+            }
+        });
+        
+        // Funções de Filtro
+        function applyFilters() {
+            const filterName = document.getElementById('filterName').value.toLowerCase().trim();
+            const filterPosition = document.getElementById('filterPosition').value.toLowerCase().trim();
+            const filterTeam = document.getElementById('filterTeam').value.toLowerCase().trim();
+            
+            // Iterar sobre todos os avatares em todas as raias
+            document.querySelectorAll('.avatar-item').forEach(avatarElement => {
+                const employeeId = parseInt(avatarElement.dataset.employeeId);
+                const employee = employees.find(e => e.id === employeeId);
+                
+                if (!employee) {
+                    avatarElement.style.display = 'none';
+                    return;
+                }
+                
+                // Aplicar filtros
+                const matchesName = !filterName || employee.name.toLowerCase().includes(filterName);
+                const matchesPosition = !filterPosition || employee.position.toLowerCase().includes(filterPosition);
+                const matchesTeam = !filterTeam || employee.team.toLowerCase().includes(filterTeam);
+                
+                // Exibir ou esconder baseado nos filtros
+                if (matchesName && matchesPosition && matchesTeam) {
+                    avatarElement.style.display = 'flex';
+                } else {
+                    avatarElement.style.display = 'none';
+                }
+            });
+            
+            // Atualizar estatísticas após filtrar
+            updateStatistics();
+        }
+        
+        function clearFilters() {
+            document.getElementById('filterName').value = '';
+            document.getElementById('filterPosition').value = '';
+            document.getElementById('filterTeam').value = '';
+            applyFilters();
+        }
+        
+        // Event listeners para os campos de filtro (filtro em tempo real)
+        document.getElementById('filterName').addEventListener('input', applyFilters);
+        document.getElementById('filterPosition').addEventListener('input', applyFilters);
+        document.getElementById('filterTeam').addEventListener('input', applyFilters);
+        
+        // Inicializar estatísticas
+        updateStatistics();
+    </script>
+
+    <!-- Modal de Calibração de Nota -->
+    <div id="calibrationModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+            <h2 class="text-2xl font-bold mb-4">Calibrar Nota</h2>
+            <p class="text-gray-600 mb-4">Digite a nova nota calibrada para <span id="calibrationEmployeeName" class="font-semibold"></span>:</p>
+            
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Nota Original: <span id="calibrationOriginalRating" class="font-bold text-blue-600"></span></label>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Nova Nota Calibrada (1.0 - 3.0):</label>
+                <input type="number" id="calibrationRatingInput" min="1.0" max="3.0" step="0.1" 
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                       placeholder="Ex: 2.8">
+                <p class="text-xs text-gray-500 mt-1">Faixas: Baixa (1.0-1.75), Boa (1.76-2.75), Excepcional (2.76-3.0)</p>
+                <label class="block text-sm font-medium text-gray-700 mb-2 mt-4">Observação (opcional):</label>
+                <textarea id="calibrationObservation" rows="3" 
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                       placeholder="Ex: Funcionário demonstrou melhora significativa no último trimestre..."></textarea>
+                <p class="text-xs text-gray-500 mt-1">Registre o motivo da calibração para rastreabilidade futura</p>
+            </div>
+            
+            <div class="flex gap-3">
+                <button onclick="confirmCalibration()" class="flex-1 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                    Confirmar
+                </button>
+                <button onclick="cancelCalibration()" class="flex-1 bg-gray-300 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-400 transition-colors">
+                    Cancelar
+                </button>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
+
