@@ -208,6 +208,11 @@
             color: #166534;
         }
         
+        .badge-good-superior {
+            background-color: #dbeafe;
+            color: #1e40af;
+        }
+        
         .badge-good {
             background-color: #fef9c3;
             color: #854d0e;
@@ -421,7 +426,7 @@
             </div>
             
             <!-- Estatísticas -->
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mt-6">
                 <div class="text-center">
                     <div class="text-4xl font-bold text-gray-800" id="stat-total">0</div>
                     <div class="text-sm text-gray-600">Total</div>
@@ -429,25 +434,56 @@
                         <span id="percent-total" class="font-medium">100%</span>
                     </div>
                 </div>
-                <div class="text-center">
+                <div class="text-center relative">
                     <div class="text-4xl font-bold text-green-600" id="stat-exceptional">0</div>
                     <div class="text-sm text-gray-600">Excepcional</div>
                     <div class="text-xs text-gray-500 mt-1">
                         <span id="percent-excepcional" class="font-medium">0%</span>
                     </div>
+                    <div class="mt-2">
+                        <div class="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full" id="exceptional-indicator">
+                            <span id="exceptional-status" class="w-2 h-2 rounded-full"></span>
+                            <span id="exceptional-meta" class="text-gray-600">Meta: 10%</span>
+                        </div>
+                    </div>
                 </div>
-                <div class="text-center">
+                <div class="text-center relative">
+                    <div class="text-4xl font-bold text-blue-600" id="stat-good-superior">0</div>
+                    <div class="text-sm text-gray-600">Boa Superior</div>
+                    <div class="text-xs text-gray-500 mt-1">
+                        <span id="percent-boa-superior" class="font-medium">0%</span>
+                    </div>
+                    <div class="mt-2">
+                        <div class="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full" id="good-superior-indicator">
+                            <span id="good-superior-status" class="w-2 h-2 rounded-full"></span>
+                            <span id="good-superior-meta" class="text-gray-600">Meta: 35%</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-center relative">
                     <div class="text-4xl font-bold text-yellow-600" id="stat-good">0</div>
                     <div class="text-sm text-gray-600">Boa</div>
                     <div class="text-xs text-gray-500 mt-1">
                         <span id="percent-boa" class="font-medium">0%</span>
                     </div>
+                    <div class="mt-2">
+                        <div class="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full" id="good-indicator">
+                            <span id="good-status" class="w-2 h-2 rounded-full"></span>
+                            <span id="good-meta" class="text-gray-600">Meta: 50%</span>
+                        </div>
+                    </div>
                 </div>
-                <div class="text-center">
+                <div class="text-center relative">
                     <div class="text-4xl font-bold text-red-600" id="stat-low">0</div>
                     <div class="text-sm text-gray-600">Baixa</div>
                     <div class="text-xs text-gray-500 mt-1">
                         <span id="percent-baixa" class="font-medium">0%</span>
+                    </div>
+                    <div class="mt-2">
+                        <div class="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full" id="low-indicator">
+                            <span id="low-status" class="w-2 h-2 rounded-full"></span>
+                            <span id="low-meta" class="text-gray-600">Meta: 5%</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -504,12 +540,25 @@
                 </div>
             </div>
             
+            <!-- Boa Superior -->
+            <div class="bg-white rounded-lg shadow-md p-6 fade-in">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-blue-600 text-white px-4 py-2 rounded-md font-bold">BOA SUPERIOR</div>
+                        <span class="text-sm text-gray-600">2.26 - 2.75 • Desempenho acima da média</span>
+                    </div>
+                </div>
+                <div id="lane-good-superior" class="lane flex flex-wrap gap-4 border-2 border-blue-200 bg-blue-50 rounded-lg p-4">
+                    <p class="text-gray-400 text-center w-full">Arraste os funcionários aqui</p>
+                </div>
+            </div>
+            
             <!-- Boa -->
             <div class="bg-white rounded-lg shadow-md p-6 fade-in">
                 <div class="flex items-center justify-between mb-4">
                     <div class="flex items-center gap-3">
                         <div class="bg-yellow-600 text-white px-4 py-2 rounded-md font-bold">BOA</div>
-                        <span class="text-sm text-gray-600">1.76 - 2.75 • Desempenho dentro das expectativas</span>
+                        <span class="text-sm text-gray-600">1.76 - 2.25 • Desempenho dentro das expectativas</span>
                     </div>
                 </div>
                 <div id="lane-good" class="lane flex flex-wrap gap-4 border-2 border-yellow-200 bg-yellow-50 rounded-lg p-4">
@@ -577,12 +626,18 @@
             if (currentRating >= 2.76) {
                 badgeClass = 'badge-exceptional';
                 label = 'Excepcional';
+            } else if (currentRating >= 2.26) {
+                badgeClass = 'badge-good-superior';
+                label = 'Boa Superior';
             } else if (currentRating >= 1.76) {
                 badgeClass = 'badge-good';
                 label = 'Boa';
-            } else {
+            } else if (currentRating >= 1.0) {
                 badgeClass = 'badge-low';
                 label = 'Baixa';
+            } else {
+                // Nota inválida ou zero
+                return '';
             }
             
             let badges = `<span class="performance-badge ${badgeClass}">${label}</span>`;
@@ -778,8 +833,10 @@
                     let suggestedRating = employee.rating;
                     if (dropZone.id === 'lane-exceptional' && suggestedRating < 2.76) {
                         suggestedRating = 2.8;
-                    } else if (dropZone.id === 'lane-good' && (suggestedRating < 1.76 || suggestedRating >= 2.76)) {
-                        suggestedRating = 2.25;
+                    } else if (dropZone.id === 'lane-good-superior' && (suggestedRating < 2.26 || suggestedRating >= 2.76)) {
+                        suggestedRating = 2.5;
+                    } else if (dropZone.id === 'lane-good' && (suggestedRating < 1.76 || suggestedRating >= 2.26)) {
+                        suggestedRating = 2.0;
                     } else if (dropZone.id === 'lane-low' && suggestedRating >= 1.76) {
                         suggestedRating = 1.5;
                     }
@@ -865,6 +922,9 @@
             if (employee && dropZone.id === 'unallocatedEmployees') {
                 delete employee.calibratedRating;
             }
+            
+            // Ordenar a raia após mover o funcionário
+            sortLaneByRating(dropZone.id);
             
             // Atualizar estatísticas
             updateStatistics();
@@ -1082,16 +1142,19 @@
             
             excelData.forEach((row, index) => {
                 try {
-                    // Validar campos obrigatórios
-                    if (!row[0] || !row[1] || !row[2] || !row[3]) {
-                        console.warn(`Linha ${index + 1}: Campos obrigatórios faltando`);
+                    // Validar campos obrigatórios (nome, equipe, cargo)
+                    if (!row[0] || !row[1] || !row[2]) {
+                        console.warn(`Linha ${index + 1}: Campos obrigatórios (nome, equipe, cargo) faltando`);
                         errorCount++;
                         return;
                     }
                     
-                    const rating = parseFloat(row[3]);
-                    if (isNaN(rating) || rating < 1.0 || rating > 3.0) {
-                        console.warn(`Linha ${index + 1}: Nota inválida (${row[3]})`);
+                    // Nota pode ser vazia/nula/zero - funcionário irá para "Não Alocados"
+                    let rating = parseFloat(row[3]);
+                    if (isNaN(rating) || rating <= 0) {
+                        rating = 0; // Marcar como zero para ir para "Não Alocados"
+                    } else if (rating < 1.0 || rating > 3.0) {
+                        console.warn(`Linha ${index + 1}: Nota fora do range válido (${row[3]})`);
                         errorCount++;
                         return;
                     }
@@ -1123,7 +1186,8 @@
                     employees.push(employee);
                     
                     // Alocar automaticamente na raia correta baseado na nota calibrada (se existir) ou nota original
-                    allocateEmployeeToLane(employee);
+                    // skipSort=true durante importação para melhor performance, ordenaremos todas as raias ao final
+                    allocateEmployeeToLane(employee, true);
                     
                     successCount++;
                 } catch (error) {
@@ -1131,6 +1195,13 @@
                     errorCount++;
                 }
             });
+            
+            // Ordenar todas as raias após importação completa
+            sortLaneByRating('lane-exceptional');
+            sortLaneByRating('lane-good-superior');
+            sortLaneByRating('lane-good');
+            sortLaneByRating('lane-low');
+            sortLaneByRating('unallocatedEmployees');
             
             updateStatistics();
             
@@ -1142,15 +1213,64 @@ Sucesso: ${successCount} funcionário(s)
 Erros: ${errorCount}`);
         }
         
-        function allocateEmployeeToLane(employee) {
+        // Ordenar avatares dentro de uma raia por nota (maior para menor)
+        function sortLaneByRating(laneId) {
+            const lane = document.getElementById(laneId);
+            if (!lane) return;
+            
+            const avatars = Array.from(lane.querySelectorAll('.avatar-item'));
+            
+            // Ordenar por nota calibrada (se existir) ou nota original, da maior para menor
+            avatars.sort((a, b) => {
+                const employeeIdA = parseInt(a.dataset.employeeId);
+                const employeeIdB = parseInt(b.dataset.employeeId);
+                
+                const empA = employees.find(e => e.id === employeeIdA);
+                const empB = employees.find(e => e.id === employeeIdB);
+                
+                if (!empA || !empB) return 0;
+                
+                const ratingA = empA.calibratedRating || empA.rating;
+                const ratingB = empB.calibratedRating || empB.rating;
+                
+                return ratingB - ratingA; // Ordem decrescente
+            });
+            
+            // Reordenar os elementos no DOM
+            avatars.forEach(avatar => lane.appendChild(avatar));
+        }
+        
+        function allocateEmployeeToLane(employee, skipSort = false) {
+            // Se nota for zero, nula, indefinida ou inválida, deixar em Não Alocados
+            if (!employee.rating || employee.rating === 0 || employee.rating < 1.0) {
+                const unallocatedArea = document.getElementById('unallocatedEmployees');
+                const placeholder = unallocatedArea.querySelector('p');
+                if (placeholder) {
+                    placeholder.remove();
+                }
+                const avatarElement = createAvatarElement(employee);
+                unallocatedArea.appendChild(avatarElement);
+                // Ordenar área de "Não Alocados" por nota (a menos que skipSort seja true)
+                if (!skipSort) {
+                    sortLaneByRating('unallocatedEmployees');
+                }
+                return;
+            }
+            
             let laneId;
             
             if (employee.rating >= 2.76) {
                 laneId = 'lane-exceptional';
+            } else if (employee.rating >= 2.26) {
+                laneId = 'lane-good-superior';
             } else if (employee.rating >= 1.76) {
                 laneId = 'lane-good';
-            } else {
+            } else if (employee.rating >= 1.0) {
                 laneId = 'lane-low';
+            } else {
+                // Se chegou aqui, notificar e adicionar em Não Alocados
+                console.warn('Nota inválida para funcionário:', employee.name);
+                laneId = 'unallocatedEmployees';
             }
             
             const lane = document.getElementById(laneId);
@@ -1161,17 +1281,76 @@ Erros: ${errorCount}`);
             
             const avatarElement = createAvatarElement(employee);
             lane.appendChild(avatarElement);
+            
+            // Ordenar a raia após adicionar o funcionário (a menos que skipSort seja true)
+            if (!skipSort) {
+                sortLaneByRating(laneId);
+            }
+        }
+        
+        // Metas de performance
+        const PERFORMANCE_TARGETS = {
+            exceptional: 10,    // 10%
+            goodSuperior: 35,   // 35%
+            good: 50,           // 50%
+            low: 5              // 5%
+        };
+        
+        // Calcular status da meta (verde/amarelo/vermelho)
+        function calculateMetaStatus(currentPercent, targetPercent) {
+            // Calcular a diferença em pontos percentuais
+            const difference = Math.abs(currentPercent - targetPercent);
+            
+            // Usar tolerâncias proporcionais à meta
+            // Meta pequena (5%) = tolerância menor
+            // Meta média (10-35%) = tolerância média  
+            // Meta grande (50%) = tolerância maior
+            let greenThreshold, yellowThreshold;
+            
+            if (targetPercent <= 10) {
+                // Metas pequenas (5%, 10%)
+                greenThreshold = 3;  // ±3 pontos percentuais
+                yellowThreshold = 8; // ±8 pontos percentuais
+            } else if (targetPercent <= 35) {
+                // Metas médias (10%, 35%)
+                greenThreshold = 10;  // ±10 pontos percentuais
+                yellowThreshold = 20; // ±20 pontos percentuais
+            } else {
+                // Meta grande (50%)
+                greenThreshold = 15; // ±15 pontos percentuais
+                yellowThreshold = 30; // ±30 pontos percentuais
+            }
+            
+            if (difference <= greenThreshold) {
+                return { color: 'green', status: 'dentro' }; // Dentro da meta
+            } else if (difference <= yellowThreshold) {
+                return { color: 'yellow', status: 'proximo' }; // Próximo da meta
+            } else {
+                return { color: 'red', status: 'fora' }; // Fora da meta
+            }
         }
         
         // Atualizar estatísticas
         function updateStatistics() {
-            // Contar apenas os avatares visíveis (não filtrados)
+            // Obter o container de "Não Alocados"
+            const unallocatedContainer = document.getElementById('unallocatedEmployees');
+            
+            // Contar apenas os avatares visíveis que NÃO estão em "Não Alocados"
             const visibleAvatars = Array.from(document.querySelectorAll('.avatar-item')).filter(avatar => {
-                return avatar.style.display !== 'none';
+                // Verificar se está visível
+                if (avatar.style.display === 'none') return false;
+                
+                // Verificar se não está dentro de "Não Alocados"
+                if (unallocatedContainer && unallocatedContainer.contains(avatar)) {
+                    return false; // Excluir avatares que estão em "Não Alocados"
+                }
+                
+                return true;
             });
             
             const total = visibleAvatars.length;
             let exceptional = 0;
+            let goodSuperior = 0;
             let good = 0;
             let low = 0;
             
@@ -1182,25 +1361,62 @@ Erros: ${errorCount}`);
                 if (emp) {
                     const rating = emp.calibratedRating || emp.rating;
                     if (rating >= 2.76) exceptional++;
+                    else if (rating >= 2.26) goodSuperior++;
                     else if (rating >= 1.76) good++;
-                    else low++;
+                    else if (rating >= 1.0) low++;
+                    // Notas inválidas/zero não são contadas
                 }
             });
             
             document.getElementById('stat-total').textContent = total;
             document.getElementById('stat-exceptional').textContent = exceptional;
+            document.getElementById('stat-good-superior').textContent = goodSuperior;
             document.getElementById('stat-good').textContent = good;
             document.getElementById('stat-low').textContent = low;
             
             // Calcular e atualizar percentuais
-            const exceptionalPercent = total > 0 ? ((exceptional / total) * 100).toFixed(1) : 0;
-            const goodPercent = total > 0 ? ((good / total) * 100).toFixed(1) : 0;
-            const lowPercent = total > 0 ? ((low / total) * 100).toFixed(1) : 0;
+            const exceptionalPercent = total > 0 ? parseFloat(((exceptional / total) * 100).toFixed(1)) : 0;
+            const goodSuperiorPercent = total > 0 ? parseFloat(((goodSuperior / total) * 100).toFixed(1)) : 0;
+            const goodPercent = total > 0 ? parseFloat(((good / total) * 100).toFixed(1)) : 0;
+            const lowPercent = total > 0 ? parseFloat(((low / total) * 100).toFixed(1)) : 0;
             
             document.getElementById('percent-total').textContent = '100%';
             document.getElementById('percent-excepcional').textContent = exceptionalPercent + '%';
+            document.getElementById('percent-boa-superior').textContent = goodSuperiorPercent + '%';
             document.getElementById('percent-boa').textContent = goodPercent + '%';
             document.getElementById('percent-baixa').textContent = lowPercent + '%';
+            
+            // Atualizar indicadores de meta
+            updateMetaIndicator('exceptional', exceptionalPercent, PERFORMANCE_TARGETS.exceptional);
+            updateMetaIndicator('good-superior', goodSuperiorPercent, PERFORMANCE_TARGETS.goodSuperior);
+            updateMetaIndicator('good', goodPercent, PERFORMANCE_TARGETS.good);
+            updateMetaIndicator('low', lowPercent, PERFORMANCE_TARGETS.low);
+        }
+        
+        // Atualizar indicador de meta visual
+        function updateMetaIndicator(category, currentPercent, targetPercent) {
+            const statusInfo = calculateMetaStatus(currentPercent, targetPercent);
+            const statusElement = document.getElementById(`${category}-status`);
+            const indicatorElement = document.getElementById(`${category}-indicator`);
+            
+            if (statusElement && indicatorElement) {
+                // Atualizar cor do indicador
+                statusElement.className = `w-2 h-2 rounded-full`;
+                
+                if (statusInfo.color === 'green') {
+                    statusElement.style.backgroundColor = '#22c55e'; // Verde
+                    indicatorElement.classList.remove('bg-red-100', 'bg-yellow-100');
+                    indicatorElement.classList.add('bg-green-50');
+                } else if (statusInfo.color === 'yellow') {
+                    statusElement.style.backgroundColor = '#eab308'; // Amarelo
+                    indicatorElement.classList.remove('bg-green-50', 'bg-red-100');
+                    indicatorElement.classList.add('bg-yellow-100');
+                } else {
+                    statusElement.style.backgroundColor = '#ef4444'; // Vermelho
+                    indicatorElement.classList.remove('bg-green-50', 'bg-yellow-100');
+                    indicatorElement.classList.add('bg-red-100');
+                }
+            }
         }
         
         // Exportar dados (CORRIGIDO)
@@ -1235,7 +1451,18 @@ Erros: ${errorCount}`);
             // Adicionar dados dos funcionários
             employees.forEach(emp => {
                 const displayRating = emp.calibratedRating || emp.rating;
-                const classification = displayRating >= 2.76 ? 'Excepcional' : displayRating >= 1.76 ? 'Boa' : 'Baixa';
+                let classification = '';
+                if (displayRating >= 2.76) {
+                    classification = 'Excepcional';
+                } else if (displayRating >= 2.26) {
+                    classification = 'Boa Superior';
+                } else if (displayRating >= 1.76) {
+                    classification = 'Boa';
+                } else if (displayRating >= 1.0) {
+                    classification = 'Baixa';
+                } else {
+                    classification = 'Não Alocado';
+                }
                 
                 // Mapear cor do avatar para descritivo
                 const colorDescriptions = {
@@ -1327,6 +1554,9 @@ Erros: ${errorCount}`);
             
             const avatarElement = createAvatarElement(employee);
             unallocatedArea.appendChild(avatarElement);
+            
+            // Ordenar área de não alocados
+            sortLaneByRating('unallocatedEmployees');
             
             updateStatistics();
             closeModal();
@@ -1436,7 +1666,7 @@ Erros: ${errorCount}`);
                 <input type="number" id="calibrationRatingInput" min="1.0" max="3.0" step="0.1" 
                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                        placeholder="Ex: 2.8">
-                <p class="text-xs text-gray-500 mt-1">Faixas: Baixa (1.0-1.75), Boa (1.76-2.75), Excepcional (2.76-3.0)</p>
+                <p class="text-xs text-gray-500 mt-1">Faixas: Baixa (1.0-1.75), Boa (1.76-2.25), Boa Superior (2.26-2.75), Excepcional (2.76-3.0)</p>
                 <label class="block text-sm font-medium text-gray-700 mb-2 mt-4">Observação (opcional):</label>
                 <textarea id="calibrationObservation" rows="3" 
                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
