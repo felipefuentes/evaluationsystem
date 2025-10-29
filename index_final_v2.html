@@ -1159,6 +1159,21 @@
                         return;
                     }
                     
+                    // Mapear descrição da cor de volta para o código interno
+                    let avatarColor = 'default'; // Cor padrão (cinza)
+                    if (row[13]) {
+                        const colorDescription = String(row[13]).trim();
+                        if (colorDescription.includes('Verde') || colorDescription.includes('green')) {
+                            avatarColor = 'green';
+                        } else if (colorDescription.includes('Amarelo') || colorDescription.includes('yellow')) {
+                            avatarColor = 'yellow';
+                        } else if (colorDescription.includes('Vermelho') || colorDescription.includes('red')) {
+                            avatarColor = 'red';
+                        } else if (colorDescription.includes('Padrão') || colorDescription.includes('Cinza') || colorDescription.includes('default')) {
+                            avatarColor = 'default';
+                        }
+                    }
+                    
                     const employee = {
                         id: Date.now() + index,
                         name: String(row[0]).trim(),
@@ -1172,7 +1187,7 @@
                         result: row[8] ? String(row[8]).trim() : '',
                         justification: row[9] ? String(row[9]).trim() : '',
                         feedback: row[10] ? String(row[10]).trim() : '',
-                        avatarColor: 'default' // Cor padrão
+                        avatarColor: avatarColor
                     };
                     
                     // Importar nota calibrada se existir (coluna 11, índice 11)
@@ -1181,6 +1196,11 @@
                         if (!isNaN(calibratedRating) && calibratedRating >= 1.0 && calibratedRating <= 3.0) {
                             employee.calibratedRating = calibratedRating;
                         }
+                    }
+                    
+                    // Importar observação da calibração se existir (coluna 12, índice 12)
+                    if (row[12] && String(row[12]).trim() !== '') {
+                        employee.calibrationObservation = String(row[12]).trim();
                     }
                     
                     employees.push(employee);
